@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StudyMind — Deploy Guide</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:    #07080f;
+    --panel: #0e0f1a;
+    --surf:  #13141f;
+    --border:#1e1f32;
+    --acc:   #5b4fff;
+    --acc2:  #7c6aff;
+    --glow:  #5b4fff33;
+    --soft:  #5b4fff14;
+    --text:  #eeeef5;
+    --muted: #6b6b8a;
+    --dim:   #3a3a55;
+    --ok:    #34d399;
+    --warn:  #fbbf24;
+    --err:   #f97066;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    padding: 40px 20px 80px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header { display:flex; align-items:center; gap:10px; margin-bottom:36px; }
+  .logo {
+    width:32px; height:32px; border-radius:9px;
+    background: linear-gradient(135deg, var(--acc), var(--acc2));
+    display:flex; align-items:center; justify-content:center;
+    font-size:15px; box-shadow: 0 0 16px var(--glow);
+  }
+  .logo-text {
+    font-size:18px; font-weight:700;
+    background: linear-gradient(90deg, var(--text), #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header-sub { margin-left:auto; font-size:11px; font-weight:700; color:var(--dim); letter-spacing:1.5px; text-transform:uppercase; }
+
+  /* Progress */
+  .progress-bar {
+    display:flex; gap:0; margin-bottom:36px;
+    background: var(--panel); border:1px solid var(--border);
+    border-radius:12px; padding:4px; overflow:hidden;
+  }
+  .progress-step {
+    flex:1; padding:10px 8px; text-align:center;
+    border-radius:9px; font-size:12px; font-weight:600;
+    color: var(--dim); cursor:pointer; transition:all .2s;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .progress-step.active { background:var(--surf); color:var(--acc2); box-shadow:0 0 0 1px var(--border); }
+  .progress-step.done { color: var(--ok); }
+
+  /* Phase */
+  .phase { display:none; animation: fadeUp .35s ease both; }
+  .phase.visible { display:block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  .phase-header { display:flex; align-items:flex-start; gap:14px; margin-bottom:20px; }
+  .phase-num {
+    width:36px; height:36px; border-radius:50%; flex-shrink:0;
+    background: linear-gradient(135deg, var(--acc), var(--acc2));
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700; box-shadow:0 0 16px var(--glow);
+  }
+  .phase-title { font-size:22px; font-weight:700; letter-spacing:-.3px; }
+  .phase-sub { font-size:14px; color:var(--muted); margin-top:4px; line-height:1.5; }
+
+  /* Cards */
+  .card {
+    background: var(--panel); border:1px solid var(--border);
+    border-radius:14px; padding:20px 22px; margin-bottom:14px;
+  }
+  .card-label {
+    font-size:11px; font-weight:700; color:var(--muted);
+    letter-spacing:1.2px; text-transform:uppercase; margin-bottom:12px;
+  }
+
+  /* Code */
+  .code-wrap { position:relative; }
+  .code-block {
+    background: var(--bg); border:1px solid var(--border);
+    border-radius:10px; padding:14px 16px;
+    font-family: 'Fira Code', monospace; font-size:12.5px;
+    color: var(--acc2); line-height:1.8;
+    overflow-x:auto; white-space:pre;
+    margin-top: 2px;
+  }
+  .code-block .c { color: var(--dim); }
+  .copy-btn {
+    position:absolute; top:8px; right:8px;
+    background:var(--surf); border:1px solid var(--border);
+    border-radius:7px; padding:4px 12px;
+    font-size:11px; color:var(--muted); cursor:pointer;
+    font-family:inherit; transition:all .15s;
+  }
+  .copy-btn:hover { border-color:var(--acc); color:var(--acc); }
+  .copy-btn.done { color:var(--ok); border-color:var(--ok); }
+
+  /* Checklist */
+  .checklist { list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .checklist li { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted); }
+  .checklist li .icon { color:var(--ok); font-size:15px; flex-shrink:0; }
+
+  /* Env table */
+  .env-table { display:flex; flex-direction:column; gap:0; }
+  .env-row {
+    display:grid; grid-template-columns:220px 1fr;
+    gap:12px; align-items:start;
+    padding:9px 0; border-bottom:1px solid var(--border);
+  }
+  .env-row:last-child { border-bottom:none; }
+  .env-key { font-family:'Fira Code',monospace; font-size:12px; color:var(--acc2); }
+  .env-desc { font-size:13px; color:var(--muted); line-height:1.5; }
+  .badge {
+    display:inline-flex; align-items:center;
+    padding:2px 8px; border-radius:4px;
+    font-size:10px; font-weight:700; margin-left:6px;
+  }
+  .badge-req { background:var(--soft); color:var(--acc2); }
+  .badge-srv { background:#f9706614; color:var(--err); }
+
+  /* Tip */
+  .tip {
+    background: #fbbf2410; border:1px solid #fbbf2433;
+    border-radius:10px; padding:12px 16px;
+    font-size:13px; color:var(--muted); line-height:1.6;
+    display:flex; gap:10px; margin-top:10px;
+  }
+  .tip .ti { color:var(--warn); flex-shrink:0; margin-top:1px; }
+  .tip code { font-family:'Fira Code',monospace; font-size:11.5px; color:var(--acc2); }
+
+  /* Architecture SVG */
+  .arch-card {
+    background: var(--panel); border:1px solid var(--border);
+    border-radius:14px; padding:20px; margin-bottom:14px;
+    overflow-x:auto;
+  }
+
+  /* Navigation */
+  .nav-row { display:flex; gap:10px; margin-top:28px; }
+  .btn-prev {
+    padding:12px 20px;
+    background:transparent; border:1px solid var(--border);
+    border-radius:10px; color:var(--muted); font-size:14px;
+    font-weight:600; cursor:pointer; font-family:inherit;
+    transition:all .15s;
+  }
+  .btn-prev:hover { border-color:var(--acc2); color:var(--acc2); }
+  .btn-next {
+    flex:1; padding:12px;
+    background: linear-gradient(135deg, var(--acc), var(--acc2));
+    border:none; border-radius:10px;
+    color:#fff; font-size:14px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+    transition:opacity .15s, transform .1s, box-shadow .2s;
+    box-shadow: 0 4px 20px var(--glow);
+  }
+  .btn-next:hover { opacity:.9; transform:translateY(-1px); box-shadow:0 8px 30px var(--glow); }
+  .btn-next:active { transform:translateY(0); }
+  .btn-finish {
+    flex:1; padding:12px;
+    background: linear-gradient(135deg, #00b894, #00cec9);
+    border:none; border-radius:10px;
+    color:#fff; font-size:14px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+    box-shadow: 0 4px 20px #00b89433;
+    display:none;
+  }
+
+  /* Final screen */
+  .final-screen {
+    display:none; text-align:center;
+    flex-direction:column; align-items:center; gap:20px;
+  }
+  .final-screen.visible { display:flex; animation: fadeUp .4s ease both; }
+  .final-icon {
+    width:80px; height:80px; border-radius:24px;
+    background:#34d39914; border:1px solid #34d39944;
+    display:flex; align-items:center; justify-content:center;
+    font-size:38px;
+  }
+  .final-title { font-size:28px; font-weight:700; letter-spacing:-.5px; }
+  .final-sub { font-size:15px; color:var(--muted); line-height:1.7; max-width:440px; }
+  .final-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:460px; }
+  .final-cell {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:12px; padding:14px;
+    font-size:13px; color:var(--muted); text-align:left;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .final-cell .em { font-size:18px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">✦</div>
+  <span class="logo-text">StudyMind</span>
+  <span class="header-sub">Deploy Guide</span>
+</div>
+
+<div class="progress-bar" id="progress">
+  <div class="progress-step active" onclick="goTo(0)">1. Next.js</div>
+  <div class="progress-step" onclick="goTo(1)">2. Supabase</div>
+  <div class="progress-step" onclick="goTo(2)">3. Stripe</div>
+  <div class="progress-step" onclick="goTo(3)">4. Env vars</div>
+  <div class="progress-step" onclick="goTo(4)">5. Vercel</div>
+  <div class="progress-step" onclick="goTo(5)">6. Checklist</div>
+</div>
+
+<!-- STEP 0: Next.js -->
+<div class="phase visible" id="phase-0">
+  <div class="phase-header">
+    <div class="phase-num">1</div>
+    <div>
+      <div class="phase-title">Estrutura do projecto</div>
+      <div class="phase-sub">Cria o projecto Next.js e organiza os ficheiros das sessões anteriores</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Criar projecto</div>
+    <div class="code-wrap">
+      <div class="code-block">npx create-next-app@latest studymind --typescript --tailwind --app
+cd studymind
+npm install @supabase/supabase-js stripe</div>
+      <button class="copy-btn" onclick="copyCode(this)">⎘ Copiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Onde colocar cada ficheiro</div>
+    <div class="code-wrap">
+      <div class="code-block"><span class="c"># Estrutura de pastas</span>
+app/
+  page.tsx                         <span class="c">← studymind.jsx</span>
+  pricing/page.tsx                 <span class="c">← studymind-stripe.jsx</span>
+  auth/page.tsx                    <span class="c">← studymind-auth.jsx</span>
+  api/
+    create-checkout-session/
+      route.ts                     <span class="c">← checkout route do Passo 3</span>
+    stripe-webhook/
+      route.ts                     <span class="c">← webhook handler do Passo 3</span>
+components/
+  CreditsWidget.tsx                <span class="c">← studymind-credits.jsx</span>
+  LimitReachedModal.tsx
+lib/
+  supabase.ts                      <span class="c">← cliente Supabase</span>
+  useCredits.ts                    <span class="c">← hook useCredits</span></div>
+      <button class="copy-btn" onclick="copyCode(this)">⎘ Copiar</button>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-next" onclick="goTo(1)">Supabase →</button>
+  </div>
+</div>
+
+<!-- STEP 1: Supabase -->
+<div class="phase" id="phase-1">
+  <div class="phase-header">
+    <div class="phase-num">2</div>
+    <div>
+      <div class="phase-title">Supabase</div>
+      <div class="phase-sub">Base de dados, autenticação e créditos</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Passos no painel</div>
+    <ul class="checklist">
+      <li><span class="icon">✓</span> Vai a <strong style="color:var(--text)">supabase.com</strong> → New Project</li>
+      <li><span class="icon">✓</span> Settings → API → copia URL e anon key</li>
+      <li><span class="icon">✓</span> Authentication → Providers → activa Email</li>
+      <li><span class="icon">✓</span> SQL Editor → corre o script abaixo</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-label">SQL — criar tabela user_credits</div>
+    <div class="code-wrap">
+      <div class="code-block">create table user_credits (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references auth.users(id) on delete cascade,
+  plan               text default 'free',
+  used               int  default 0,
+  reset_at           timestamptz default (now() + interval '30 days'),
+  stripe_customer_id text,
+  stripe_sub_id      text,
+  updated_at         timestamptz default now()
+);
+
+alter table user_credits enable row level security;
+
+create policy "own" on user_credits
+  for all using (auth.uid() = user_id);</div>
+      <button class="copy-btn" onclick="copyCode(this)">⎘ Copiar</button>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-prev" onclick="goTo(0)">← Anterior</button>
+    <button class="btn-next" onclick="goTo(2)">Stripe →</button>
+  </div>
+</div>
+
+<!-- STEP 2: Stripe -->
+<div class="phase" id="phase-2">
+  <div class="phase-header">
+    <div class="phase-num">3</div>
+    <div>
+      <div class="phase-title">Stripe</div>
+      <div class="phase-sub">Produto, preço e webhook de pagamentos</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Configurar produto</div>
+    <ul class="checklist">
+      <li><span class="icon">✓</span> stripe.com → Products → Add product</li>
+      <li><span class="icon">✓</span> Nome: <strong style="color:var(--text)">StudyMind Pro</strong> · Preço: <strong style="color:var(--text)">8,00€/mês</strong> · recurring</li>
+      <li><span class="icon">✓</span> Copia o Price ID → <code style="font-family:'Fira Code',monospace;font-size:12px;color:var(--acc2)">price_xxxxxxxx</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Configurar webhook</div>
+    <ul class="checklist">
+      <li><span class="icon">✓</span> Developers → Webhooks → Add endpoint</li>
+      <li><span class="icon">✓</span> URL: <code style="font-family:'Fira Code',monospace;font-size:12px;color:var(--acc2)">https://teu-dominio.vercel.app/api/stripe-webhook</code></li>
+      <li><span class="icon">✓</span> Eventos: <code style="font-family:'Fira Code',monospace;font-size:12px;color:var(--acc2)">checkout.session.completed</code></li>
+      <li><span class="icon">✓</span> Adiciona também: <code style="font-family:'Fira Code',monospace;font-size:12px;color:var(--acc2)">customer.subscription.deleted</code></li>
+      <li><span class="icon">✓</span> Copia o Webhook Secret → <code style="font-family:'Fira Code',monospace;font-size:12px;color:var(--acc2)">whsec_xxxxxxxx</code></li>
+    </ul>
+    <div class="tip">
+      <span class="ti">⚠</span>
+      <span>Para testar localmente antes do deploy:<br>
+      <code>stripe login</code><br>
+      <code>stripe listen --forward-to localhost:3000/api/stripe-webhook</code></span>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-prev" onclick="goTo(1)">← Anterior</button>
+    <button class="btn-next" onclick="goTo(3)">Variáveis →</button>
+  </div>
+</div>
+
+<!-- STEP 3: Env vars -->
+<div class="phase" id="phase-3">
+  <div class="phase-header">
+    <div class="phase-num">4</div>
+    <div>
+      <div class="phase-title">Variáveis de ambiente</div>
+      <div class="phase-sub">Configura no .env.local e depois no painel do Vercel</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="env-table">
+      <div class="env-row">
+        <span class="env-key">NEXT_PUBLIC_SUPABASE_URL</span>
+        <span class="env-desc">URL do projecto Supabase <span class="badge badge-req">obrigatório</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">NEXT_PUBLIC_SUPABASE_ANON_KEY</span>
+        <span class="env-desc">Chave anon (pública, segura no browser) <span class="badge badge-req">obrigatório</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">SUPABASE_SERVICE_ROLE_KEY</span>
+        <span class="env-desc">Chave service role — apenas no servidor <span class="badge badge-srv">só servidor</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">STRIPE_SECRET_KEY</span>
+        <span class="env-desc">sk_live_... em produção / sk_test_... local <span class="badge badge-srv">só servidor</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">NEXT_PUBLIC_STRIPE_KEY</span>
+        <span class="env-desc">pk_live_... (pública, segura no browser) <span class="badge badge-req">obrigatório</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">STRIPE_PRICE_ID</span>
+        <span class="env-desc">price_xxx do plano Pro <span class="badge badge-req">obrigatório</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">STRIPE_WEBHOOK_SECRET</span>
+        <span class="env-desc">whsec_... do endpoint de webhook <span class="badge badge-srv">só servidor</span></span>
+      </div>
+      <div class="env-row">
+        <span class="env-key">NEXT_PUBLIC_URL</span>
+        <span class="env-desc">https://teu-projecto.vercel.app (para redirects)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Ficheiro .env.local</div>
+    <div class="code-wrap">
+      <div class="code-block">NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_KEY=pk_test_...
+STRIPE_PRICE_ID=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+NEXT_PUBLIC_URL=http://localhost:3000</div>
+      <button class="copy-btn" onclick="copyCode(this)">⎘ Copiar</button>
+    </div>
+    <div class="tip" style="margin-top:12px">
+      <span class="ti">⚠</span>
+      <span>Nunca faças commit do <code>.env.local</code> — adiciona ao <code>.gitignore</code>. No Vercel, as variáveis são configuradas no painel em Settings → Environment Variables.</span>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-prev" onclick="goTo(2)">← Anterior</button>
+    <button class="btn-next" onclick="goTo(4)">Deploy →</button>
+  </div>
+</div>
+
+<!-- STEP 4: Vercel -->
+<div class="phase" id="phase-4">
+  <div class="phase-header">
+    <div class="phase-num">5</div>
+    <div>
+      <div class="phase-title">Deploy no Vercel</div>
+      <div class="phase-sub">Push para GitHub e deploy automático em segundos</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Comandos Git + Vercel CLI</div>
+    <div class="code-wrap">
+      <div class="code-block"><span class="c"># 1. Inicializa git e faz primeiro commit</span>
+git init
+git add .
+git commit -m "feat: studymind initial deploy"
+
+<span class="c"># 2. Cria repo no GitHub e faz push</span>
+git remote add origin https://github.com/SEU_USER/studymind.git
+git push -u origin main
+
+<span class="c"># 3. No vercel.com:</span>
+<span class="c">#    New Project → Import → studymind</span>
+<span class="c">#    Settings → Env Variables → adiciona todas as vars</span>
+<span class="c">#    → Deploy!</span>
+
+<span class="c"># Alternativa: Vercel CLI</span>
+npm i -g vercel
+vercel --prod</div>
+      <button class="copy-btn" onclick="copyCode(this)">⎘ Copiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Arquitectura final</div>
+    <svg width="100%" viewBox="0 0 620 280" role="img" style="display:block">
+      <title>Arquitectura StudyMind no Vercel</title>
+      <desc>Utilizador acede ao Vercel/Next.js que comunica com Anthropic API, Supabase e Stripe</desc>
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#5b4fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#3a3a55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- User -->
+      <rect x="10" y="110" width="100" height="44" rx="8" fill="#13141f" stroke="#2a2a3e" stroke-width="1"/>
+      <text x="60" y="132" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="12" dominant-baseline="central">👤</text>
+      <text x="60" y="148" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="12" dominant-baseline="central">Utilizador</text>
+
+      <!-- Arrow User -> Vercel -->
+      <line x1="110" y1="132" x2="188" y2="132" stroke="#5b4fff" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Vercel / Next.js — central -->
+      <rect x="190" y="80" width="160" height="120" rx="12" fill="#13141f" stroke="#5b4fff" stroke-width="1.5"/>
+      <rect x="190" y="80" width="160" height="120" rx="12" fill="none" stroke="#5b4fff44" stroke-width="6"/>
+      <text x="270" y="112" text-anchor="middle" fill="#eeeef5" font-family="DM Sans,sans-serif" font-size="13" font-weight="700" dominant-baseline="central">Vercel</text>
+      <text x="270" y="130" text-anchor="middle" fill="#7c6aff" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">Next.js App Router</text>
+      <text x="270" y="147" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">API Routes</text>
+      <text x="270" y="163" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">Edge Functions</text>
+      <text x="270" y="179" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">Static Assets</text>
+
+      <!-- Anthropic -->
+      <rect x="420" y="20" width="130" height="52" rx="8" fill="#13141f" stroke="#2a2a3e" stroke-width="1"/>
+      <text x="485" y="42" text-anchor="middle" fill="#eeeef5" font-family="DM Sans,sans-serif" font-size="12" font-weight="600" dominant-baseline="central">Anthropic API</text>
+      <text x="485" y="58" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">claude-sonnet-4</text>
+
+      <!-- Supabase -->
+      <rect x="420" y="114" width="130" height="52" rx="8" fill="#13141f" stroke="#2a2a3e" stroke-width="1"/>
+      <text x="485" y="136" text-anchor="middle" fill="#eeeef5" font-family="DM Sans,sans-serif" font-size="12" font-weight="600" dominant-baseline="central">Supabase</text>
+      <text x="485" y="152" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">Auth + Créditos</text>
+
+      <!-- Stripe -->
+      <rect x="420" y="208" width="130" height="52" rx="8" fill="#13141f" stroke="#2a2a3e" stroke-width="1"/>
+      <text x="485" y="230" text-anchor="middle" fill="#eeeef5" font-family="DM Sans,sans-serif" font-size="12" font-weight="600" dominant-baseline="central">Stripe</text>
+      <text x="485" y="246" text-anchor="middle" fill="#6b6b8a" font-family="DM Sans,sans-serif" font-size="11" dominant-baseline="central">Pagamentos</text>
+
+      <!-- Arrows Vercel -> services -->
+      <path d="M350 118 L418 46" stroke="#3a3a55" stroke-width="1" marker-end="url(#arr2)" fill="none"/>
+      <line x1="350" y1="140" x2="418" y2="140" stroke="#3a3a55" stroke-width="1" marker-end="url(#arr2)"/>
+      <path d="M350 160 L418 234" stroke="#3a3a55" stroke-width="1" marker-end="url(#arr2)" fill="none"/>
+
+      <!-- Stripe webhook back -->
+      <path d="M420 220 Q400 220 398 195 Q396 185 352 175" stroke="#3a3a55" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr2)" fill="none"/>
+      <text x="382" y="212" text-anchor="middle" fill="#3a3a55" font-family="DM Sans,sans-serif" font-size="10">webhook</text>
+    </svg>
+  </div>
+
+  <div class="tip">
+    <span>🔄</span>
+    <span>A partir daqui cada <code>git push main</code> faz deploy automático. O Vercel trata do build, CDN e SSL.</span>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-prev" onclick="goTo(3)">← Anterior</button>
+    <button class="btn-next" onclick="goTo(5)">Checklist final →</button>
+  </div>
+</div>
+
+<!-- STEP 5: Checklist -->
+<div class="phase" id="phase-5">
+  <div class="phase-header">
+    <div class="phase-num">✓</div>
+    <div>
+      <div class="phase-title">Checklist antes de lançar</div>
+      <div class="phase-sub">Testa tudo antes de passar para live mode no Stripe</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Testes funcionais</div>
+    <ul class="checklist">
+      <li><span class="icon">✓</span> Login / registo com email real funciona</li>
+      <li><span class="icon">✓</span> Upload de PDF gera resumo, flashcards e quiz</li>
+      <li><span class="icon">✓</span> 4º documento é bloqueado no plano Free</li>
+      <li><span class="icon">✓</span> Modal de upgrade aparece ao atingir limite</li>
+      <li><span class="icon">✓</span> Checkout Stripe com cartão de teste: <code style="font-family:'Fira Code',monospace;font-size:12px;color:var(--acc2)">4242 4242 4242 4242</code></li>
+      <li><span class="icon">✓</span> Após checkout, plano actualiza para "pro" no Supabase</li>
+      <li><span class="icon">✓</span> Com plano Pro, documentos ilimitados funcionam</li>
+      <li><span class="icon">✓</span> Email de confirmação enviado após registo</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Go-live</div>
+    <ul class="checklist">
+      <li><span class="icon">✓</span> Stripe: activar Live mode e substituir chaves no Vercel</li>
+      <li><span class="icon">✓</span> Vercel: configurar domínio personalizado (Settings → Domains)</li>
+      <li><span class="icon">✓</span> Supabase: confirmar limites do plano gratuito (500MB, 50k utilizadores)</li>
+      <li><span class="icon">✓</span> Testar pagamento real com valor pequeno (modo live)</li>
+    </ul>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn-prev" onclick="goTo(4)">← Anterior</button>
+    <button class="btn-finish" id="btn-finish" onclick="showFinal()" style="display:flex;align-items:center;justify-content:center;gap:8px">🚀 Lançar!</button>
+  </div>
+</div>
+
+<!-- FINAL -->
+<div class="final-screen" id="final-screen">
+  <div class="final-icon">🚀</div>
+  <div class="final-title">StudyMind está online!</div>
+  <div class="final-sub">
+    Tens um produto completo com auth, créditos, pagamentos e deploy automatizado.
+  </div>
+  <div class="final-grid">
+    <div class="final-cell"><span class="em">✦</span><span>App funcional com IA integrada</span></div>
+    <div class="final-cell"><span class="em">🔐</span><span>Auth via Supabase</span></div>
+    <div class="final-cell"><span class="em">💳</span><span>Pagamentos via Stripe</span></div>
+    <div class="final-cell"><span class="em">🔄</span><span>Deploy automático no Vercel</span></div>
+  </div>
+  <button onclick="goTo(0)" style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:11px 24px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+    ← Ver guia novamente
+  </button>
+</div>
+
+<script>
+  let current = 0;
+  const total = 6;
+
+  function goTo(n) {
+    document.querySelectorAll('.phase').forEach(p => p.classList.remove('visible'));
+    document.getElementById('final-screen').classList.remove('visible');
+    const phase = document.getElementById('phase-' + n);
+    if (phase) phase.classList.add('visible');
+
+    const steps = document.querySelectorAll('.progress-step');
+    steps.forEach((s, i) => {
+      s.classList.remove('active','done');
+      if (i < n) s.classList.add('done');
+      else if (i === n) s.classList.add('active');
+    });
+
+    if (n === 5) {
+      document.getElementById('btn-finish').style.display = 'flex';
+    }
+    current = n;
+  }
+
+  function showFinal() {
+    document.querySelectorAll('.phase').forEach(p => p.classList.remove('visible'));
+    document.getElementById('progress').style.display = 'none';
+    document.getElementById('final-screen').classList.add('visible');
+  }
+
+  function copyCode(btn) {
+    const code = btn.previousElementSibling.innerText;
+    navigator.clipboard.writeText(code).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copiado!';
+      btn.classList.add('done');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('done'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>
